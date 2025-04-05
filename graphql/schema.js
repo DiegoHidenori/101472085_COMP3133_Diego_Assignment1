@@ -40,35 +40,47 @@ const AuthPayloadType = new GraphQLObjectType({
 const RootQuery = new GraphQLObjectType({
     name: 'RootQueryType',
     fields: {
-        login: {
+        users: {
+            type: new GraphQLList(UserType),
+            async resolve() {
+              return await User.find();
+            }
+          },
+          user: {
+            type: UserType,
+            args: { id: { type: GraphQLID } },
+            async resolve(_, { id }) {
+              return await User.findById(id);
+            }
+          },
+          
+          login: {
             type: AuthPayloadType,
             args: {
-                username: { type: GraphQLString },
-                email: { type: GraphQLString },
-                password: { type: GraphQLString }
+              email: { type: GraphQLNonNull(GraphQLString) },
+              password: { type: GraphQLNonNull(GraphQLString) }
             },
-            async resolve(_, args) {
-                const user = await User.findOne({ 
-                    $or: [
-                        { username: args.username }, 
-                        { email: args.email }
-                    ] 
-                });
-                console.log('User found:', user);
-                
-                if (!user) throw new Error('User not found');
-                console.log('Comparing password:', args.password);
-                console.log('Stored hash:', user.password);
-                
-                const isMatch = await bcrypt.compare(args.password, user.password);
-                console.log('Password match result:', isMatch);
-                
-                if (!isMatch) throw new Error('Invalid credentials');
-                
-                const token = jwt.sign({ userId: user.id }, 'mysecretkey', { expiresIn: '1h' });
-                return { user, token };
+            async resolve(_, { email, password }) {
+              console.log('Attempting login with email:', email);
+          
+              const user = await User.findOne({ email });
+          
+              console.log('User found:', user);
+          
+              if (!user) {
+                throw new Error('User not found');
+              }
+          
+              const isMatch = await bcrypt.compare(password, user.password);
+              if (!isMatch) {
+                throw new Error('Invalid credentials');
+              }
+          
+              const token = jwt.sign({ userId: user.id }, 'mysecretkey', { expiresIn: '1h' });
+              return { user, token };
             }
-        },
+          },
+          
         employees: {
             type: new GraphQLList(EmployeeType),
             async resolve() {
@@ -116,12 +128,16 @@ const Mutation = new GraphQLObjectType({
                 password: { type: GraphQLNonNull(GraphQLString) }
             },
             async resolve(_, { username, email, password }) {
+                console.log('Checking username/email:', username, email);
                 const existingUser = await User.findOne({ 
                     $or: [
                         { username }, 
                         { email }
                     ] 
                 });
+
+                console.log('Existing user found:', existingUser);
+
                 if (existingUser) {
                     throw new Error('User with this email or username already exists');
                 }
@@ -139,6 +155,45 @@ const Mutation = new GraphQLObjectType({
                 return { user: newUser, token };
             }
         },
+        updateUser: {
+            type: UserType,
+            args: {
+              id: { type: GraphQLNonNull(GraphQLID) },
+              username: { type: GraphQLString },
+              email: { type: GraphQLString },
+              password: { type: GraphQLString }
+            },
+            async resolve(_, args) {
+              const { id, password, ...updateFields } = args;
+          
+              if (password) {
+                updateFields.password = await bcrypt.hash(password, 10);
+              }
+          
+              const user = await User.findByIdAndUpdate(id, updateFields, { new: true });
+          
+              if (!user) {
+                throw new Error('User not found');
+              }
+          
+              return user;
+            }
+          },
+          deleteUser: {
+            type: UserType,
+            args: {
+              id: { type: GraphQLNonNull(GraphQLID) }
+            },
+            async resolve(_, { id }) {
+              const user = await User.findById(id);
+              if (!user) {
+                throw new Error('User not found');
+              }
+              await User.findByIdAndDelete(id);
+              return user;
+            }
+          },
+          
         addEmployee: {
             type: EmployeeType,
             args: {
