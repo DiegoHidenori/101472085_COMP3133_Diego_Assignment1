@@ -7,7 +7,24 @@ const schema = require('./graphql/schema');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = [
+    'http://localhost:4200',
+    'https://101472085-comp3133-assignment2.vercel.app/'
+  ];
+  
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS not allowed for this origin: ' + origin));
+      }
+    },
+    credentials: true
+  }));
+  
+
 app.use(express.json());
 
 // app.use('/graphql', graphqlHTTP({
