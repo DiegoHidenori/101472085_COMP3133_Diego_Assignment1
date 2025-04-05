@@ -102,17 +102,17 @@ const RootQuery = new GraphQLObjectType({
             },
             async resolve(_, { designation, department }) {
                 const query = {};
-
+            
                 if (designation) {
-                    query.designation = designation;
+                  query.designation = { $regex: designation, $options: 'i' };
                 }
-
+            
                 if (department) {
-                    query.department = department;
+                  query.department = { $regex: department, $options: 'i' };
                 }
-
+            
                 return await Employee.find(query);
-            }
+              }
         }
     }
 });
