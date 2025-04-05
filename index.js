@@ -10,7 +10,7 @@ const app = express();
 
 const allowedOrigins = [
     'http://localhost:4200',
-    'https://101472085-comp3133-assignment2.vercel.app/'
+    'https://101472085-comp3133-assignment2.vercel.app'
   ];
   
   app.use(cors({
